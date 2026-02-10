@@ -507,7 +507,6 @@
 
     // Reset panel state when shown
     if (count > 0) {
-      hideMoveOptions();
       hideStatus();
     }
   }
