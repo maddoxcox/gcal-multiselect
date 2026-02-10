@@ -1,11 +1,225 @@
 // Google Calendar Multi-Select Background Service Worker
 // Handles OAuth authentication and Google Calendar API calls
 
-import { CalendarAPI } from '../utils/calendar-api.js';
+const API_BASE = 'https://www.googleapis.com/calendar/v3';
+const BATCH_SIZE = 50;
 
 // State
 let authToken = null;
 let calendarAPI = null;
+
+// Calendar API Class
+class CalendarAPI {
+  constructor(accessToken) {
+    this.accessToken = accessToken;
+  }
+
+  async request(endpoint, options = {}) {
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+        'Content-Type': 'application/json',
+        ...options.headers
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
+      console.error('[GCal Multi-Select] API Error:', response.status, error);
+      throw new Error(error.error?.message || `API Error: ${response.status}`);
+    }
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    return response.json();
+  }
+
+  async getCalendarList() {
+    const data = await this.request('/users/me/calendarList');
+    return data.items.map(cal => ({
+      id: cal.id,
+      summary: cal.summary,
+      primary: cal.primary || false,
+      backgroundColor: cal.backgroundColor,
+      accessRole: cal.accessRole
+    }));
+  }
+
+  async deleteEvents(events) {
+    const results = { success: [], failed: [] };
+
+    for (let i = 0; i < events.length; i += BATCH_SIZE) {
+      const batch = events.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.allSettled(
+        batch.map(event => this.deleteEvent(event))
+      );
+
+      batchResults.forEach((result, index) => {
+        const event = batch[index];
+        if (result.status === 'fulfilled') {
+          results.success.push(event.eventId);
+        } else {
+          results.failed.push({
+            eventId: event.eventId,
+            error: result.reason?.message || 'Unknown error'
+          });
+        }
+      });
+    }
+
+    return results;
+  }
+
+  async deleteEvent(event) {
+    const calendarId = encodeURIComponent(event.calendarId || 'primary');
+    const eventId = encodeURIComponent(event.eventId);
+
+    const url = `/calendars/${calendarId}/events/${eventId}`;
+    console.log('[GCal Multi-Select] DELETE request:', url);
+
+    await this.request(url, {
+      method: 'DELETE'
+    });
+
+    return { success: true };
+  }
+
+  async moveEvents(events, targetCalendarId, newDateTime) {
+    const results = { success: [], failed: [] };
+
+    for (let i = 0; i < events.length; i += BATCH_SIZE) {
+      const batch = events.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.allSettled(
+        batch.map(event => this.moveEvent(event, targetCalendarId, newDateTime))
+      );
+
+      batchResults.forEach((result, index) => {
+        const event = batch[index];
+        if (result.status === 'fulfilled') {
+          results.success.push(event.eventId);
+        } else {
+          results.failed.push({
+            eventId: event.eventId,
+            error: result.reason?.message || 'Unknown error'
+          });
+        }
+      });
+    }
+
+    return results;
+  }
+
+  async moveEvent(event, targetCalendarId, newDateTime) {
+    const sourceCalendarId = encodeURIComponent(event.calendarId || 'primary');
+    const eventId = encodeURIComponent(event.eventId);
+
+    if (targetCalendarId && targetCalendarId !== event.calendarId) {
+      const targetId = encodeURIComponent(targetCalendarId);
+      await this.request(
+        `/calendars/${sourceCalendarId}/events/${eventId}/move?destination=${targetId}`,
+        { method: 'POST' }
+      );
+    }
+
+    if (newDateTime) {
+      const calendarId = encodeURIComponent(targetCalendarId || event.calendarId || 'primary');
+
+      const currentEvent = await this.request(
+        `/calendars/${calendarId}/events/${eventId}`
+      );
+
+      const startDate = new Date(currentEvent.start.dateTime || currentEvent.start.date);
+      const endDate = new Date(currentEvent.end.dateTime || currentEvent.end.date);
+      const duration = endDate - startDate;
+
+      const newStart = new Date(newDateTime);
+      const newEnd = new Date(newStart.getTime() + duration);
+
+      const updateBody = {
+        start: currentEvent.start.dateTime
+          ? { dateTime: newStart.toISOString(), timeZone: currentEvent.start.timeZone }
+          : { date: newStart.toISOString().split('T')[0] },
+        end: currentEvent.end.dateTime
+          ? { dateTime: newEnd.toISOString(), timeZone: currentEvent.end.timeZone }
+          : { date: newEnd.toISOString().split('T')[0] }
+      };
+
+      await this.request(
+        `/calendars/${calendarId}/events/${eventId}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(updateBody)
+        }
+      );
+    }
+
+    return { success: true };
+  }
+
+  async moveEventsByDelta(events, timeDelta) {
+    const results = { success: [], failed: [] };
+
+    for (let i = 0; i < events.length; i += BATCH_SIZE) {
+      const batch = events.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.allSettled(
+        batch.map(event => this.moveEventByDelta(event, timeDelta))
+      );
+
+      batchResults.forEach((result, index) => {
+        const event = batch[index];
+        if (result.status === 'fulfilled') {
+          results.success.push(event.eventId);
+        } else {
+          results.failed.push({
+            eventId: event.eventId,
+            error: result.reason?.message || 'Unknown error'
+          });
+        }
+      });
+    }
+
+    return results;
+  }
+
+  async moveEventByDelta(event, timeDelta) {
+    const calendarId = encodeURIComponent(event.calendarId || 'primary');
+    const eventId = encodeURIComponent(event.eventId);
+
+    const currentEvent = await this.request(
+      `/calendars/${calendarId}/events/${eventId}`
+    );
+
+    const startDate = new Date(currentEvent.start.dateTime || currentEvent.start.date);
+    const endDate = new Date(currentEvent.end.dateTime || currentEvent.end.date);
+
+    const newStart = new Date(startDate.getTime() + timeDelta);
+    const newEnd = new Date(endDate.getTime() + timeDelta);
+
+    const updateBody = {
+      start: currentEvent.start.dateTime
+        ? { dateTime: newStart.toISOString(), timeZone: currentEvent.start.timeZone }
+        : { date: newStart.toISOString().split('T')[0] },
+      end: currentEvent.end.dateTime
+        ? { dateTime: newEnd.toISOString(), timeZone: currentEvent.end.timeZone }
+        : { date: newEnd.toISOString().split('T')[0] }
+    };
+
+    await this.request(
+      `/calendars/${calendarId}/events/${eventId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(updateBody)
+      }
+    );
+
+    return { success: true };
+  }
+}
 
 // Initialize on install
 chrome.runtime.onInstalled.addListener(() => {
@@ -23,12 +237,13 @@ async function getAuthToken(interactive = true) {
       }
       authToken = token;
       calendarAPI = new CalendarAPI(token);
+      console.log('[GCal Multi-Select] Authenticated successfully');
       resolve(token);
     });
   });
 }
 
-// Remove cached token (for re-auth)
+// Remove cached token
 async function removeCachedToken() {
   if (authToken) {
     return new Promise((resolve) => {
@@ -43,8 +258,9 @@ async function removeCachedToken() {
 
 // Handle messages from content script and popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('[GCal Multi-Select] Received message:', message.type);
   handleMessage(message, sender, sendResponse);
-  return true; // Keep channel open for async response
+  return true;
 });
 
 async function handleMessage(message, sender, sendResponse) {
@@ -52,7 +268,6 @@ async function handleMessage(message, sender, sendResponse) {
     switch (message.type) {
       case 'GET_AUTH_STATUS':
         try {
-          // Try non-interactive first
           await getAuthToken(false);
           sendResponse({ authenticated: true });
         } catch {
@@ -75,8 +290,10 @@ async function handleMessage(message, sender, sendResponse) {
         break;
 
       case 'DELETE_EVENTS':
+        console.log('[GCal Multi-Select] Deleting events:', message.events);
         await ensureAuthenticated();
         const deleteResults = await calendarAPI.deleteEvents(message.events);
+        console.log('[GCal Multi-Select] Delete results:', deleteResults);
         sendResponse(deleteResults);
         break;
 
@@ -106,7 +323,6 @@ async function handleMessage(message, sender, sendResponse) {
         break;
 
       case 'SELECTION_CHANGED':
-        // Store selection for popup access
         chrome.storage.local.set({ selectedEvents: message.data });
         sendResponse({ success: true });
         break;
@@ -120,7 +336,6 @@ async function handleMessage(message, sender, sendResponse) {
   }
 }
 
-// Ensure we have a valid auth token
 async function ensureAuthenticated() {
   if (!authToken) {
     await getAuthToken(true);
@@ -129,3 +344,5 @@ async function ensureAuthenticated() {
     calendarAPI = new CalendarAPI(authToken);
   }
 }
+
+console.log('[GCal Multi-Select] Background script loaded');

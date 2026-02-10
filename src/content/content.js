@@ -249,11 +249,33 @@
     return null;
   }
 
+  // Decode base64 event data from Google Calendar DOM
+  function decodeEventData(encodedId) {
+    try {
+      // Google Calendar encodes event info as base64: "eventId calendarEmail"
+      const decoded = atob(encodedId);
+      const parts = decoded.split(' ');
+      if (parts.length >= 2) {
+        return {
+          eventId: parts[0],
+          calendarId: 'primary' // Always use primary for simplicity
+        };
+      }
+      return { eventId: decoded, calendarId: 'primary' };
+    } catch (e) {
+      // Not base64 encoded, use as-is
+      return { eventId: encodedId, calendarId: 'primary' };
+    }
+  }
+
   // Get event info from DOM element
   function getEventInfo(element) {
-    const eventId = element.getAttribute('data-eventid') ||
-                   element.getAttribute('data-eventchip') ||
-                   generateTempId(element);
+    const rawEventId = element.getAttribute('data-eventid') ||
+                       element.getAttribute('data-eventchip') ||
+                       generateTempId(element);
+
+    // Decode the event data (gets both eventId and calendarId)
+    const decoded = decodeEventData(rawEventId);
 
     // Try to get the title
     const titleEl = element.querySelector('[aria-hidden="true"]') ||
@@ -261,14 +283,12 @@
                    element;
     const title = titleEl?.textContent?.trim() || 'Untitled Event';
 
-    // Try to extract calendar ID from element or parent
-    const calendarId = extractCalendarId(element);
-
     return {
-      eventId,
+      eventId: decoded.eventId,
       title,
-      calendarId,
-      element
+      calendarId: decoded.calendarId,
+      element,
+      rawEventId // Keep raw ID for debugging
     };
   }
 
