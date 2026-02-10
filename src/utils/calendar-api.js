@@ -177,4 +177,70 @@ export class CalendarAPI {
     const evtId = encodeURIComponent(eventId);
     return this.request(`/calendars/${calId}/events/${evtId}`);
   }
+
+  // Move multiple events by a time delta (for drag operations)
+  async moveEventsByDelta(events, timeDelta) {
+    const results = {
+      success: [],
+      failed: []
+    };
+
+    for (let i = 0; i < events.length; i += BATCH_SIZE) {
+      const batch = events.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.allSettled(
+        batch.map(event => this.moveEventByDelta(event, timeDelta))
+      );
+
+      batchResults.forEach((result, index) => {
+        const event = batch[index];
+        if (result.status === 'fulfilled') {
+          results.success.push(event.eventId);
+        } else {
+          results.failed.push({
+            eventId: event.eventId,
+            error: result.reason?.message || 'Unknown error'
+          });
+        }
+      });
+    }
+
+    return results;
+  }
+
+  // Move a single event by a time delta
+  async moveEventByDelta(event, timeDelta) {
+    const calendarId = encodeURIComponent(event.calendarId || 'primary');
+    const eventId = encodeURIComponent(event.eventId);
+
+    // Get the current event
+    const currentEvent = await this.request(
+      `/calendars/${calendarId}/events/${eventId}`
+    );
+
+    // Calculate new times by adding the delta
+    const startDate = new Date(currentEvent.start.dateTime || currentEvent.start.date);
+    const endDate = new Date(currentEvent.end.dateTime || currentEvent.end.date);
+
+    const newStart = new Date(startDate.getTime() + timeDelta);
+    const newEnd = new Date(endDate.getTime() + timeDelta);
+
+    const updateBody = {
+      start: currentEvent.start.dateTime
+        ? { dateTime: newStart.toISOString(), timeZone: currentEvent.start.timeZone }
+        : { date: newStart.toISOString().split('T')[0] },
+      end: currentEvent.end.dateTime
+        ? { dateTime: newEnd.toISOString(), timeZone: currentEvent.end.timeZone }
+        : { date: newEnd.toISOString().split('T')[0] }
+    };
+
+    await this.request(
+      `/calendars/${calendarId}/events/${eventId}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(updateBody)
+      }
+    );
+
+    return { success: true };
+  }
 }

@@ -90,6 +90,15 @@ async function handleMessage(message, sender, sendResponse) {
         sendResponse(moveResults);
         break;
 
+      case 'MOVE_EVENTS_BY_DELTA':
+        await ensureAuthenticated();
+        const deltaResults = await calendarAPI.moveEventsByDelta(
+          message.events,
+          message.timeDelta
+        );
+        sendResponse(deltaResults);
+        break;
+
       case 'GET_CALENDARS':
         await ensureAuthenticated();
         const calendars = await calendarAPI.getCalendarList();

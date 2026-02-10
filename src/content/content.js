@@ -7,7 +7,10 @@
   // State management
   const state = {
     selectedEvents: new Map(), // eventId -> { element, title, calendarId }
-    isInitialized: false
+    isInitialized: false,
+    isDragging: false,
+    dragStartTime: null,
+    draggedEventId: null
   };
 
   // Event selectors - Google Calendar uses various data attributes
@@ -60,6 +63,10 @@
   function setupEventListeners() {
     document.addEventListener('click', handleClick, true);
     document.addEventListener('keydown', handleKeydown);
+
+    // Drag handling for multi-move
+    document.addEventListener('mousedown', handleDragStart, true);
+    document.addEventListener('mouseup', handleDragEnd, true);
   }
 
   // Handle click events on calendar
@@ -97,6 +104,139 @@
     if ((e.ctrlKey || e.metaKey) && e.key === 'a' && e.shiftKey) {
       e.preventDefault();
       selectAllVisibleEvents();
+    }
+  }
+
+  // Handle drag start on selected events
+  function handleDragStart(e) {
+    if (state.selectedEvents.size < 2) return;
+
+    const eventElement = findEventElement(e.target);
+    if (!eventElement) return;
+
+    const eventInfo = getEventInfo(eventElement);
+
+    // Only track if dragging a selected event
+    if (state.selectedEvents.has(eventInfo.eventId)) {
+      state.isDragging = true;
+      state.draggedEventId = eventInfo.eventId;
+      state.dragStartTime = getTimeFromPosition(e.clientY, e.clientX);
+
+      // Show visual indicator that multi-drag is active
+      document.body.classList.add('gcal-ms-dragging');
+    }
+  }
+
+  // Handle drag end - detect where event was dropped
+  function handleDragEnd(e) {
+    if (!state.isDragging || state.selectedEvents.size < 2) {
+      state.isDragging = false;
+      return;
+    }
+
+    document.body.classList.remove('gcal-ms-dragging');
+
+    // Wait briefly for Google Calendar to process its own drag
+    setTimeout(async () => {
+      const dragEndTime = getTimeFromPosition(e.clientY, e.clientX);
+
+      if (state.dragStartTime && dragEndTime) {
+        const timeDelta = dragEndTime.getTime() - state.dragStartTime.getTime();
+
+        // Only proceed if there was a meaningful time change (more than 5 minutes)
+        if (Math.abs(timeDelta) > 5 * 60 * 1000) {
+          await moveAllSelectedByDelta(timeDelta);
+        }
+      }
+
+      state.isDragging = false;
+      state.dragStartTime = null;
+      state.draggedEventId = null;
+    }, 300);
+  }
+
+  // Get time from mouse position on the calendar grid
+  function getTimeFromPosition(clientY, clientX) {
+    // Find the calendar grid
+    const grid = document.querySelector('[role="grid"]') ||
+                 document.querySelector('[data-view-heading]')?.parentElement;
+
+    if (!grid) return null;
+
+    const gridRect = grid.getBoundingClientRect();
+
+    // Calculate relative position
+    const relativeY = clientY - gridRect.top;
+    const relativeX = clientX - gridRect.left;
+
+    // Get time column headers to determine the day
+    const dayHeaders = document.querySelectorAll('[data-datekey]');
+    let targetDate = new Date();
+
+    if (dayHeaders.length > 0) {
+      const columnWidth = gridRect.width / dayHeaders.length;
+      const dayIndex = Math.floor(relativeX / columnWidth);
+      const dateKey = dayHeaders[Math.min(dayIndex, dayHeaders.length - 1)]?.getAttribute('data-datekey');
+
+      if (dateKey) {
+        // dateKey format is typically YYYYMMDD
+        const year = parseInt(dateKey.substring(0, 4));
+        const month = parseInt(dateKey.substring(4, 6)) - 1;
+        const day = parseInt(dateKey.substring(6, 8));
+        targetDate = new Date(year, month, day);
+      }
+    }
+
+    // Calculate hour from Y position (assuming day view with 24 hours)
+    const hourHeight = gridRect.height / 24;
+    const hour = Math.floor(relativeY / hourHeight);
+    const minuteFraction = (relativeY % hourHeight) / hourHeight;
+    const minutes = Math.round(minuteFraction * 60 / 15) * 15; // Round to 15-min increments
+
+    targetDate.setHours(Math.max(0, Math.min(23, hour)));
+    targetDate.setMinutes(minutes);
+    targetDate.setSeconds(0);
+    targetDate.setMilliseconds(0);
+
+    return targetDate;
+  }
+
+  // Move all selected events by a time delta
+  async function moveAllSelectedByDelta(timeDelta) {
+    // Don't move the event that was dragged (Google Calendar already moved it)
+    const eventsToMove = Array.from(state.selectedEvents.entries())
+      .filter(([id]) => id !== state.draggedEventId)
+      .map(([id, info]) => ({
+        eventId: id,
+        title: info.title,
+        calendarId: info.calendarId
+      }));
+
+    if (eventsToMove.length === 0) return;
+
+    showStatus(`Moving ${eventsToMove.length} other events...`);
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'MOVE_EVENTS_BY_DELTA',
+        events: eventsToMove,
+        timeDelta: timeDelta
+      });
+
+      if (response.success && response.success.length > 0) {
+        showStatus(`Moved ${response.success.length + 1} events together!`);
+        setTimeout(() => {
+          hideStatus();
+          // Refresh the page to show updated positions
+          location.reload();
+        }, 1000);
+      } else if (response.error) {
+        showStatus(`Error: ${response.error}`);
+        setTimeout(hideStatus, 3000);
+      }
+    } catch (error) {
+      showStatus(`Error: ${error.message}`);
+      setTimeout(hideStatus, 3000);
     }
   }
 
