@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GCal Multi-Select</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Calendar Multi-Select</h1>
+    </header>
+
+    <!-- Auth Required State -->
+    <div id="auth-required" class="state-view hidden">
+      <div class="empty-state">
+        <div class="empty-icon">🔐</div>
+        <p>Sign in to manage your calendar events</p>
+        <button id="auth-btn" class="btn btn-primary">
+          Sign in with Google
+        </button>
+      </div>
+    </div>
+
+    <!-- No Selection State -->
+    <div id="no-selection" class="state-view hidden">
+      <div class="empty-state">
+        <div class="empty-icon">📅</div>
+        <p>No events selected</p>
+        <p class="hint">Use <kbd>Ctrl</kbd>+click (or <kbd>⌘</kbd>+click on Mac) to select events in Google Calendar</p>
+      </div>
+    </div>
+
+    <!-- Selection Active State -->
+    <div id="selection-active" class="state-view hidden">
+      <div class="selection-info">
+        <span class="selection-count" id="selection-count">0</span>
+        <span class="selection-label">events selected</span>
+      </div>
+
+      <div class="selected-events" id="selected-events-list">
+        <!-- Event items will be inserted here -->
+      </div>
+
+      <div class="actions">
+        <button id="delete-btn" class="btn btn-danger">
+          <span class="btn-icon">🗑️</span>
+          Delete Selected
+        </button>
+
+        <button id="move-btn" class="btn btn-secondary">
+          <span class="btn-icon">📦</span>
+          Move / Reschedule
+        </button>
+
+        <button id="clear-btn" class="btn btn-ghost">
+          Clear Selection
+        </button>
+      </div>
+    </div>
+
+    <!-- Move Dialog -->
+    <div id="move-dialog" class="dialog hidden">
+      <div class="dialog-header">
+        <h2>Move Events</h2>
+        <button id="close-dialog" class="btn-close">✕</button>
+      </div>
+
+      <div class="dialog-content">
+        <div class="form-group">
+          <label for="target-calendar">Move to Calendar:</label>
+          <select id="target-calendar" class="form-select">
+            <option value="">Keep current calendar</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="new-date">Reschedule to:</label>
+          <input type="datetime-local" id="new-date" class="form-input">
+          <p class="form-hint">Leave empty to keep original time</p>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button id="cancel-move" class="btn btn-ghost">Cancel</button>
+        <button id="confirm-move" class="btn btn-primary">Move Events</button>
+      </div>
+    </div>
+
+    <!-- Progress State -->
+    <div id="progress" class="state-view hidden">
+      <div class="progress-indicator">
+        <div class="spinner"></div>
+        <p id="progress-text">Processing...</p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <button id="logout-btn" class="btn-link hidden">Sign out</button>
+    </footer>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+/* Google Calendar Multi-Select Styles */
+
+/* Selected event highlight */
+.gcal-ms-selected {
+  outline: 3px solid #1a73e8 !important;
+  outline-offset: -1px !important;
+  box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.3) !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+/* Selection checkmark indicator */
+.gcal-ms-selected::before {
+  content: '✓';
+  position: absolute !important;
+  top: -8px !important;
+  right: -8px !important;
+  width: 20px !important;
+  height: 20px !important;
+  background-color: #1a73e8 !important;
+  color: white !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 12px !important;
+  font-weight: bold !important;
+  z-index: 100 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Floating selection badge */
+.gcal-ms-badge {
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  background-color: #1a73e8 !important;
+  color: white !important;
+  padding: 12px 16px !important;
+  border-radius: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-family: 'Google Sans', Roboto, Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  z-index: 10000 !important;
+  animation: gcal-ms-slide-in 0.2s ease-out !important;
+}
+
+.gcal-ms-badge-count {
+  background-color: white !important;
+  color: #1a73e8 !important;
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  min-width: 20px !important;
+  text-align: center !important;
+}
+
+.gcal-ms-badge-text {
+  color: white !important;
+}
+
+.gcal-ms-badge-clear {
+  background: none !important;
+  border: none !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  cursor: pointer !important;
+  padding: 4px !important;
+  margin-left: 4px !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  border-radius: 50% !important;
+  transition: all 0.15s ease !important;
+}
+
+.gcal-ms-badge-clear:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+/* Animation for badge appearance */
+@keyframes gcal-ms-slide-in {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Cursor hint when hovering events with Ctrl/Cmd held */
+[data-eventid]:hover,
+[data-eventchip]:hover {
+  cursor: pointer;
+}
+
+/* Subtle hover effect when Ctrl is held (via JS class) */
+.gcal-ms-ctrl-hover [data-eventid]:hover,
+.gcal-ms-ctrl-hover [data-eventchip]:hover {
+  outline: 2px dashed #1a73e8 !important;
+  outline-offset: -1px !important;
+}
