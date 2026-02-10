@@ -245,34 +245,220 @@
     notifyBackgroundOfSelection();
   }
 
-  // Create the floating selection count badge
+  // Create the floating action panel
   function createSelectionBadge() {
-    const badge = document.createElement('div');
-    badge.id = 'gcal-ms-badge';
-    badge.className = 'gcal-ms-badge';
-    badge.innerHTML = `
-      <span class="gcal-ms-badge-count">0</span>
-      <span class="gcal-ms-badge-text">selected</span>
-      <button class="gcal-ms-badge-clear" title="Clear selection (Esc)">✕</button>
+    const panel = document.createElement('div');
+    panel.id = 'gcal-ms-panel';
+    panel.className = 'gcal-ms-panel';
+    panel.innerHTML = `
+      <div class="gcal-ms-panel-header">
+        <span class="gcal-ms-panel-count">0</span>
+        <span class="gcal-ms-panel-text">events selected</span>
+        <button class="gcal-ms-panel-close" title="Clear selection (Esc)">✕</button>
+      </div>
+      <div class="gcal-ms-panel-actions">
+        <button class="gcal-ms-btn gcal-ms-btn-delete" title="Delete selected events">
+          🗑️ Delete
+        </button>
+        <button class="gcal-ms-btn gcal-ms-btn-move" title="Move or reschedule events">
+          📦 Move
+        </button>
+      </div>
+      <div class="gcal-ms-panel-move hidden" id="gcal-ms-move-options">
+        <div class="gcal-ms-form-group">
+          <label>Move to calendar:</label>
+          <select id="gcal-ms-calendar-select">
+            <option value="">Loading calendars...</option>
+          </select>
+        </div>
+        <div class="gcal-ms-form-group">
+          <label>Reschedule to:</label>
+          <input type="datetime-local" id="gcal-ms-new-date">
+        </div>
+        <div class="gcal-ms-move-actions">
+          <button class="gcal-ms-btn gcal-ms-btn-cancel">Cancel</button>
+          <button class="gcal-ms-btn gcal-ms-btn-confirm">Confirm Move</button>
+        </div>
+      </div>
+      <div class="gcal-ms-panel-status hidden" id="gcal-ms-status">
+        <span class="gcal-ms-status-text">Processing...</span>
+      </div>
     `;
-    badge.style.display = 'none';
+    panel.style.display = 'none';
 
-    badge.querySelector('.gcal-ms-badge-clear').addEventListener('click', (e) => {
+    // Event listeners
+    panel.querySelector('.gcal-ms-panel-close').addEventListener('click', (e) => {
       e.stopPropagation();
       clearSelection();
     });
 
-    document.body.appendChild(badge);
+    panel.querySelector('.gcal-ms-btn-delete').addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleDelete();
+    });
+
+    panel.querySelector('.gcal-ms-btn-move').addEventListener('click', (e) => {
+      e.stopPropagation();
+      showMoveOptions();
+    });
+
+    panel.querySelector('.gcal-ms-btn-cancel').addEventListener('click', (e) => {
+      e.stopPropagation();
+      hideMoveOptions();
+    });
+
+    panel.querySelector('.gcal-ms-btn-confirm').addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleMove();
+    });
+
+    document.body.appendChild(panel);
   }
 
-  // Update the selection badge count
-  function updateSelectionBadge() {
-    const badge = document.getElementById('gcal-ms-badge');
-    if (!badge) return;
+  // Show move options
+  function showMoveOptions() {
+    const movePanel = document.getElementById('gcal-ms-move-options');
+    movePanel.classList.remove('hidden');
+    loadCalendars();
+  }
+
+  // Hide move options
+  function hideMoveOptions() {
+    const movePanel = document.getElementById('gcal-ms-move-options');
+    movePanel.classList.add('hidden');
+  }
+
+  // Load calendars into select
+  async function loadCalendars() {
+    const select = document.getElementById('gcal-ms-calendar-select');
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'GET_CALENDARS' });
+      if (response.calendars) {
+        select.innerHTML = '<option value="">Keep current calendar</option>';
+        response.calendars.forEach(cal => {
+          const option = document.createElement('option');
+          option.value = cal.id;
+          option.textContent = cal.summary + (cal.primary ? ' (Primary)' : '');
+          select.appendChild(option);
+        });
+      }
+    } catch (error) {
+      select.innerHTML = '<option value="">Error loading calendars</option>';
+    }
+  }
+
+  // Handle delete action
+  async function handleDelete() {
+    if (state.selectedEvents.size === 0) return;
 
     const count = state.selectedEvents.size;
-    badge.querySelector('.gcal-ms-badge-count').textContent = count;
-    badge.style.display = count > 0 ? 'flex' : 'none';
+    if (!confirm(`Delete ${count} event(s)? This cannot be undone.`)) return;
+
+    showStatus(`Deleting ${count} events...`);
+
+    const events = Array.from(state.selectedEvents.entries()).map(([id, info]) => ({
+      eventId: id,
+      title: info.title,
+      calendarId: info.calendarId
+    }));
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'DELETE_EVENTS',
+        events
+      });
+
+      if (response.success && response.success.length > 0) {
+        showStatus(`Deleted ${response.success.length} events!`);
+        setTimeout(() => {
+          clearSelection();
+          hideStatus();
+        }, 1500);
+      } else if (response.error) {
+        showStatus(`Error: ${response.error}`);
+        setTimeout(hideStatus, 3000);
+      }
+    } catch (error) {
+      showStatus(`Error: ${error.message}`);
+      setTimeout(hideStatus, 3000);
+    }
+  }
+
+  // Handle move action
+  async function handleMove() {
+    const targetCalendar = document.getElementById('gcal-ms-calendar-select').value;
+    const newDate = document.getElementById('gcal-ms-new-date').value;
+
+    if (!targetCalendar && !newDate) {
+      alert('Please select a calendar or pick a new date/time.');
+      return;
+    }
+
+    const count = state.selectedEvents.size;
+    showStatus(`Moving ${count} events...`);
+    hideMoveOptions();
+
+    const events = Array.from(state.selectedEvents.entries()).map(([id, info]) => ({
+      eventId: id,
+      title: info.title,
+      calendarId: info.calendarId
+    }));
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'MOVE_EVENTS',
+        events,
+        targetCalendarId: targetCalendar || null,
+        newDateTime: newDate || null
+      });
+
+      if (response.success && response.success.length > 0) {
+        showStatus(`Moved ${response.success.length} events!`);
+        setTimeout(() => {
+          clearSelection();
+          hideStatus();
+        }, 1500);
+      } else if (response.error) {
+        showStatus(`Error: ${response.error}`);
+        setTimeout(hideStatus, 3000);
+      }
+    } catch (error) {
+      showStatus(`Error: ${error.message}`);
+      setTimeout(hideStatus, 3000);
+    }
+  }
+
+  // Show status message
+  function showStatus(message) {
+    const status = document.getElementById('gcal-ms-status');
+    const actions = document.querySelector('.gcal-ms-panel-actions');
+    status.querySelector('.gcal-ms-status-text').textContent = message;
+    status.classList.remove('hidden');
+    actions.classList.add('hidden');
+  }
+
+  // Hide status message
+  function hideStatus() {
+    const status = document.getElementById('gcal-ms-status');
+    const actions = document.querySelector('.gcal-ms-panel-actions');
+    status.classList.add('hidden');
+    actions.classList.remove('hidden');
+  }
+
+  // Update the selection panel count
+  function updateSelectionBadge() {
+    const panel = document.getElementById('gcal-ms-panel');
+    if (!panel) return;
+
+    const count = state.selectedEvents.size;
+    panel.querySelector('.gcal-ms-panel-count').textContent = count;
+    panel.style.display = count > 0 ? 'block' : 'none';
+
+    // Reset panel state when shown
+    if (count > 0) {
+      hideMoveOptions();
+      hideStatus();
+    }
   }
 
   // Observe calendar for dynamic changes

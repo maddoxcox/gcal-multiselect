@@ -29,56 +29,176 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
 }
 
-/* Floating selection badge */
-.gcal-ms-badge {
+/* Floating action panel */
+.gcal-ms-panel {
   position: fixed !important;
   bottom: 24px !important;
   right: 24px !important;
-  background-color: #1a73e8 !important;
-  color: white !important;
-  padding: 12px 16px !important;
-  border-radius: 24px !important;
+  background-color: white !important;
+  border-radius: 12px !important;
+  font-family: 'Google Sans', Roboto, Arial, sans-serif !important;
+  font-size: 14px !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25) !important;
+  z-index: 10000 !important;
+  animation: gcal-ms-slide-in 0.2s ease-out !important;
+  min-width: 280px !important;
+  overflow: hidden !important;
+}
+
+.gcal-ms-panel-header {
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
-  font-family: 'Google Sans', Roboto, Arial, sans-serif !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-  z-index: 10000 !important;
-  animation: gcal-ms-slide-in 0.2s ease-out !important;
-}
-
-.gcal-ms-badge-count {
-  background-color: white !important;
-  color: #1a73e8 !important;
-  padding: 2px 8px !important;
-  border-radius: 12px !important;
-  font-weight: 700 !important;
-  min-width: 20px !important;
-  text-align: center !important;
-}
-
-.gcal-ms-badge-text {
+  padding: 14px 16px !important;
+  background-color: #1a73e8 !important;
   color: white !important;
 }
 
-.gcal-ms-badge-clear {
+.gcal-ms-panel-count {
+  background-color: white !important;
+  color: #1a73e8 !important;
+  padding: 2px 10px !important;
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  min-width: 24px !important;
+  text-align: center !important;
+}
+
+.gcal-ms-panel-text {
+  flex: 1 !important;
+  font-weight: 500 !important;
+}
+
+.gcal-ms-panel-close {
   background: none !important;
   border: none !important;
   color: rgba(255, 255, 255, 0.8) !important;
   cursor: pointer !important;
-  padding: 4px !important;
-  margin-left: 4px !important;
-  font-size: 16px !important;
+  padding: 4px 8px !important;
+  font-size: 18px !important;
   line-height: 1 !important;
-  border-radius: 50% !important;
+  border-radius: 4px !important;
   transition: all 0.15s ease !important;
 }
 
-.gcal-ms-badge-clear:hover {
+.gcal-ms-panel-close:hover {
   background-color: rgba(255, 255, 255, 0.2) !important;
   color: white !important;
+}
+
+.gcal-ms-panel-actions {
+  display: flex !important;
+  gap: 8px !important;
+  padding: 16px !important;
+}
+
+.gcal-ms-btn {
+  flex: 1 !important;
+  padding: 10px 16px !important;
+  border: none !important;
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  font-family: inherit !important;
+}
+
+.gcal-ms-btn-delete {
+  background-color: #ea4335 !important;
+  color: white !important;
+}
+
+.gcal-ms-btn-delete:hover {
+  background-color: #c5221f !important;
+}
+
+.gcal-ms-btn-move {
+  background-color: #e8f0fe !important;
+  color: #1a73e8 !important;
+}
+
+.gcal-ms-btn-move:hover {
+  background-color: #d2e3fc !important;
+}
+
+.gcal-ms-panel-move {
+  padding: 0 16px 16px !important;
+  border-top: 1px solid #e8eaed !important;
+}
+
+.gcal-ms-panel-move.hidden {
+  display: none !important;
+}
+
+.gcal-ms-form-group {
+  margin-bottom: 12px !important;
+  margin-top: 12px !important;
+}
+
+.gcal-ms-form-group label {
+  display: block !important;
+  margin-bottom: 6px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #5f6368 !important;
+}
+
+.gcal-ms-form-group select,
+.gcal-ms-form-group input {
+  width: 100% !important;
+  padding: 10px 12px !important;
+  border: 1px solid #dadce0 !important;
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  font-family: inherit !important;
+  background-color: white !important;
+  color: #202124 !important;
+}
+
+.gcal-ms-form-group select:focus,
+.gcal-ms-form-group input:focus {
+  outline: none !important;
+  border-color: #1a73e8 !important;
+  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2) !important;
+}
+
+.gcal-ms-move-actions {
+  display: flex !important;
+  gap: 8px !important;
+  margin-top: 12px !important;
+}
+
+.gcal-ms-btn-cancel {
+  background-color: #f1f3f4 !important;
+  color: #5f6368 !important;
+}
+
+.gcal-ms-btn-cancel:hover {
+  background-color: #e8eaed !important;
+}
+
+.gcal-ms-btn-confirm {
+  background-color: #1a73e8 !important;
+  color: white !important;
+}
+
+.gcal-ms-btn-confirm:hover {
+  background-color: #1557b0 !important;
+}
+
+.gcal-ms-panel-status {
+  padding: 20px 16px !important;
+  text-align: center !important;
+  color: #5f6368 !important;
+}
+
+.gcal-ms-panel-status.hidden {
+  display: none !important;
+}
+
+.gcal-ms-panel-actions.hidden {
+  display: none !important;
 }
 
 /* Animation for badge appearance */
