@@ -19,7 +19,7 @@
     '[data-eventid]',
     '[data-eventchip]',
     '[role="button"][data-eventid]',
-    '.WjJeHe', // Event chip class
+    '.WjJeHe', // Event chip class (fallback container)
     '[data-eventchip][role="button"]'
   ];
 
@@ -116,7 +116,7 @@
     if (!eventElement) return;
 
     const eventInfo = getEventInfo(eventElement);
-
+    if (!eventInfo) return;
     // Only track if dragging a selected event
     if (state.selectedEvents.has(eventInfo.eventId)) {
       state.isDragging = true;
@@ -203,6 +203,9 @@
           // Refresh the page to show updated positions
           location.reload();
         }, 1000);
+      } else if (response.failed && response.failed.length > 0) {
+        showStatus(`Moved 1 event; &{response.failed.length} failed (check permissions/calendar ownership)`);
+        setTimeout(hideStatus, 3500);
       } else if (response.error) {
         showStatus(`Error: ${response.error}`);
         setTimeout(hideStatus, 3000);
@@ -231,13 +234,13 @@
       if (parts.length >= 2) {
         return {
           eventId: parts[0],
-          calendarId: 'primary' // Always use primary for simplicity
+          calendarId: 'parts[1]' // Always use primary for simplicity
         };
       }
-      return { eventId: decoded, calendarId: 'primary' };
+      return { eventId: decoded, calendarId: null };
     } catch (e) {
       // Not base64 encoded, use as-is
-      return { eventId: encodedId, calendarId: 'primary' };
+      return { eventId: encodedId, calendarId: null };
     }
   }
 
