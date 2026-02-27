@@ -187,8 +187,12 @@ class CalendarAPI {
   }
 
   async moveEventByDelta(event, timeDelta) {
-    const calendarId = encodeURIComponent(event.calendarId || 'primary');
-    const eventId = encodeURIComponent(event.eventId);
+    const calendarIdRaw = event.calendarId || 'primary';
+    const eventIdRaw = event.eventId;
+    const calendarId = encodeURIComponent(calendarIdRaw);
+    const eventId = encodeURIComponent(eventIdRaw);
+
+    console.log('[GCal Multi-Select] MOVE_EVENT_BY_DELTA', { calendarId: calendarIdRaw, eventId: eventIdRaw, timeDelta });
 
     const currentEvent = await this.request(
       `/calendars/${calendarId}/events/${eventId}`
@@ -218,6 +222,24 @@ class CalendarAPI {
     );
 
     return { success: true };
+  }
+
+  async getEventTime(event) {
+    const calendarIdRaw = event.calendarId || 'primary';
+    const eventIdRaw = event.eventId;
+    const calendarId = encodeURIComponent(calendarIdRaw);
+    const eventId = encodeURIComponent(eventIdRaw);
+
+    console.log('[GCal Multi-Select] GET_EVENT_TIME', { calendarId: calendarIdRaw, eventId: eventIdRaw });
+
+    const currentEvent = await this.request(
+      `/calendars/${calendarId}/events/${eventId}`
+    );
+
+    return {
+      start: currentEvent.start.dateTime || currentEvent.start.date,
+      end: currentEvent.end.dateTime || currentEvent.end.date
+    };
   }
 }
 
@@ -308,11 +330,14 @@ async function handleMessage(message, sender, sendResponse) {
         break;
 
       case 'MOVE_EVENTS_BY_DELTA':
+        console.log('[GCal Multi-Select] Moving events by delta:', message.timeDelta);
+        console.log('[GCal Multi-Select] Events to move:', message.events);
         await ensureAuthenticated();
         const deltaResults = await calendarAPI.moveEventsByDelta(
           message.events,
           message.timeDelta
         );
+        console.log('[GCal Multi-Select] Move results:', deltaResults);
         sendResponse(deltaResults);
         break;
 
@@ -320,6 +345,12 @@ async function handleMessage(message, sender, sendResponse) {
         await ensureAuthenticated();
         const calendars = await calendarAPI.getCalendarList();
         sendResponse({ calendars });
+        break;
+
+      case 'GET_EVENT_TIME':
+        await ensureAuthenticated();
+        const times = await calendarAPI.getEventTime(message.event);
+        sendResponse(times);
         break;
 
       case 'SELECTION_CHANGED':

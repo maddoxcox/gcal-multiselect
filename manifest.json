@@ -23,7 +23,16 @@
   "content_scripts": [
     {
       "matches": ["https://calendar.google.com/*"],
-      "js": ["src/content/content.js"],
+      "js": [
+        "src/content/state.js",
+        "src/content/dom-utils.js",
+        "src/content/ui.js",
+        "src/content/messaging.js",
+        "src/content/selection.js",
+        "src/content/delete.js",
+        "src/content/drag-move.js",
+        "src/content/init.js"
+      ],
       "css": ["src/content/styles.css"],
       "run_at": "document_idle"
     }
