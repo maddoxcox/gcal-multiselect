@@ -16,11 +16,9 @@
     const isRangeClick = e.shiftKey;
 
     if (isMultiSelectClick) {
-      e.preventDefault();
       e.stopPropagation();
       G.toggleEventSelection(eventElement);
     } else if (isRangeClick && G.state.selectedEvents.size > 0) {
-      e.preventDefault();
       e.stopPropagation();
       G.handleRangeSelection(eventElement);
     }
