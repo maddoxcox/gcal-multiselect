@@ -4,8 +4,6 @@
 .gcal-ms-selected {
   outline: 3px solid #1a73e8 !important;
   outline-offset: -1px !important;
-  box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.3) !important;
-  z-index: 10 !important;
 }
 
 /* Selection checkmark indicator */
