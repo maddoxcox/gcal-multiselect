@@ -63,7 +63,22 @@
       return;
     }
 
+    // Prevent double-firing from both mouseup and dragend
+    G.state.isDragging = false;
     document.body.classList.remove('gcal-ms-dragging');
+
+    // Capture drag state before it gets cleared
+    const dragStartY = G.state.dragStartY;
+    const draggedEventId = G.state.draggedEventId;
+    const draggedEventCalendarId = G.state.draggedEventCalendarId;
+    const draggedEventTimePromise = G.state.draggedEventTimePromise;
+
+    // Reset drag state immediately
+    G.state.dragStartY = null;
+    G.state.dragStartX = null;
+    G.state.draggedEventId = null;
+    G.state.draggedEventCalendarId = null;
+    G.state.draggedEventTimePromise = null;
 
     // Wait briefly for Google Calendar to process its own drag
     setTimeout(async () => {
@@ -71,10 +86,10 @@
 
       // Preferred: compute delta from actual event times via API
       try {
-        const originalTimes = await G.state.draggedEventTimePromise;
+        const originalTimes = await draggedEventTimePromise;
         const updatedTimes = await G.fetchEventTimes({
-          eventId: G.state.draggedEventId,
-          calendarId: G.state.draggedEventCalendarId
+          eventId: draggedEventId,
+          calendarId: draggedEventCalendarId
         });
 
         if (originalTimes && updatedTimes) {
@@ -85,10 +100,14 @@
         console.warn('[GCal Multi-Select] Failed to compute time delta from API:', err);
       }
 
-      // Fallback: compute delta from pixel movement (less reliable)
-      if (timeDelta === null) {
+      // Fallback: use pixel delta if API returned null or too-small value (stale data)
+      if (timeDelta === null || Math.abs(timeDelta) < 5 * 60 * 1000) {
+        if (timeDelta !== null) {
+          console.log('[GCal Multi-Select] API delta too small (likely stale), falling back to pixel calculation');
+        }
+
         const dragEndY = e.clientY;
-        const pixelDeltaY = dragEndY - G.state.dragStartY;
+        const pixelDeltaY = dragEndY - dragStartY;
 
         console.log('[GCal Multi-Select] Drag ended. Y delta:', pixelDeltaY, 'pixels');
 
@@ -105,25 +124,18 @@
       // Only proceed if there was a meaningful time change (more than 5 minutes)
       if (Math.abs(timeDelta) > 5 * 60 * 1000) {
         console.log('[GCal Multi-Select] Moving events by', timeDelta / 60000, 'minutes');
-        await G.moveAllSelectedByDelta(timeDelta);
+        await G.moveAllSelectedByDelta(timeDelta, draggedEventId);
       } else {
         console.log('[GCal Multi-Select] Time delta too small, not moving');
       }
-
-      G.state.isDragging = false;
-      G.state.dragStartY = null;
-      G.state.dragStartX = null;
-      G.state.draggedEventId = null;
-      G.state.draggedEventCalendarId = null;
-      G.state.draggedEventTimePromise = null;
     }, 300);
   };
 
   // Move all selected events by a time delta
-  G.moveAllSelectedByDelta = async function(timeDelta) {
+  G.moveAllSelectedByDelta = async function(timeDelta, draggedEventId) {
     // Don't move the event that was dragged (Google Calendar already moved it)
     const eventsToMove = Array.from(G.state.selectedEvents.entries())
-      .filter(([id]) => id !== G.state.draggedEventId)
+      .filter(([id]) => id !== draggedEventId)
       .map(([id, info]) => ({
         eventId: id,
         title: info.title,
