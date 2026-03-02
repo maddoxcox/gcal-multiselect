@@ -2,18 +2,18 @@
 
 /* Selected event highlight */
 .gcal-ms-selected {
-  outline: 3px solid #1a73e8 !important;
-  outline-offset: -1px !important;
+  outline: 2px solid #1a73e8 !important;
+  outline-offset: -2px !important;
 }
 
 /* Selection checkmark indicator */
 .gcal-ms-selected::before {
   content: '✓';
   position: absolute !important;
-  top: -8px !important;
-  right: -8px !important;
-  width: 20px !important;
-  height: 20px !important;
+  top: 2px !important;
+  right: 2px !important;
+  width: 16px !important;
+  height: 16px !important;
   background-color: #1a73e8 !important;
   color: white !important;
   border-radius: 50% !important;
