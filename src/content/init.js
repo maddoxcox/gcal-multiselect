@@ -39,14 +39,15 @@
   // Observe calendar for dynamic changes
   function observeCalendarChanges() {
     const observer = new MutationObserver((mutations) => {
+      // Update element references and reposition overlays
       G.state.selectedEvents.forEach((info, eventId) => {
         const newElement = document.querySelector(`[data-eventid="${eventId}"]`) ||
                           document.querySelector(`[data-eventchip="${eventId}"]`);
         if (newElement && newElement !== info.element) {
           info.element = newElement;
-          newElement.classList.add('gcal-ms-selected');
         }
       });
+      G.repositionOverlays();
     });
 
     const mainContent = document.querySelector('[role="main"]') || document.body;
@@ -54,6 +55,10 @@
       childList: true,
       subtree: true
     });
+
+    // Also reposition on scroll/resize since overlays use fixed positioning
+    window.addEventListener('scroll', G.repositionOverlays, true);
+    window.addEventListener('resize', G.repositionOverlays);
   }
 
   // Initialize the extension

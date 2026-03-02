@@ -1,11 +1,14 @@
 /* Google Calendar Multi-Select Styles */
 
-/* Selected event highlight - inset shadow only, no layout impact */
-.gcal-ms-selected {
-  box-shadow: inset 0 0 0 2px #1a73e8 !important;
+/* Selection overlay - positioned over events without touching GCal's DOM */
+.gcal-ms-overlay {
+  position: fixed !important;
+  border: 2px solid #1a73e8 !important;
+  border-radius: 4px !important;
+  pointer-events: none !important;
+  z-index: 9999 !important;
+  box-sizing: border-box !important;
 }
-
-/* No checkmark - removed to prevent layout shifts */
 
 /* Floating action panel */
 .gcal-ms-panel {
@@ -139,19 +142,16 @@
 }
 
 /* Multi-drag indicator */
-.gcal-ms-dragging .gcal-ms-selected {
-  opacity: 0.7 !important;
-  outline-style: dashed !important;
+.gcal-ms-dragging .gcal-ms-overlay {
+  border-style: dashed !important;
   animation: gcal-ms-pulse 0.5s ease-in-out infinite alternate !important;
 }
 
 @keyframes gcal-ms-pulse {
   from {
-    box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.3) !important;
+    box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.3) !important;
   }
   to {
-    box-shadow: 0 0 0 8px rgba(26, 115, 232, 0.5) !important;
+    box-shadow: 0 0 0 6px rgba(26, 115, 232, 0.5) !important;
   }
 }
-
-/* Drag hint removed to prevent layout shifts */
